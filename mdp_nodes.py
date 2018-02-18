@@ -10,14 +10,27 @@ class StateNode(object):
         self.cumulative_reward = 0.
         self.depth = depth
 
-    def add_child(child_node):
+    def find_child(self, action):
+        # check if this child already exist
+        # for determinisitc and stochasitc action
+        
+        exist = False
+        exist_child = None
+        for child in self.children:
+            if child.action == action:
+                exist = True
+                exist_child = child
+
+        return exist_child, exist
+
+    def append_child(self, child_node):
         self.children.append(child_node)
 
-    def value():
+    def value(self):
         value = self.cumulative_reward / self.visited_times
         return value
 
-    def num_children():
+    def num_children(self):
         num_children = len(self.children)
         return num_children
 
@@ -28,17 +41,33 @@ class StateActionNode(object):
         self.action = action
         self.parent = parent
         self.children = []
-        self.visited_time = 0
-        self.value = 0.
+        self.visited_times = 0
+        self.cumulative_reward = 0.
+        self.reward = 0.
         self.depth = depth
 
-    def add_child(child_node):
+    def find_child(self, state_nxt):
+        # check if this child already exist
+        # for determinisitc model only
+
+        exist = False
+        exist_child = None
+
+        if self.num_children() != 0:
+            exist = True
+            exist_child = self.children[0]
+
+        return exist_child, exist
+
+
+    def append_child(self, child_node):
         self.children.append(child_node)
 
-    def value():
+
+    def value(self):
         value = self.cumulative_reward / self.visited_times
         return value
 
-    def num_children():
+    def num_children(self):
         num_children = len(self.children)
         return num_children
