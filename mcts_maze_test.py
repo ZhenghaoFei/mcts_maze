@@ -1,12 +1,15 @@
 from maze import MazeEnv
 from mcts import Mcts
 from controller import RandomController
+from utils import ModelWrapper
+
 
 maze_env = MazeEnv(10, 0.2)
 # maze_env.plot_st(ion=False)
 
 random_policy_fn = RandomController(maze_env)
-mcts = Mcts(maze_env, 1., random_policy_fn)
+model_fn = ModelWrapper(maze_env)
+mcts = Mcts(maze_env, 1., random_policy_fn, model_fn)
 
 s_t = maze_env.reset()
 

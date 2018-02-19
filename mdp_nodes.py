@@ -46,12 +46,30 @@ class StateActionNode(object):
         self.reward = 0.
         self.depth = depth
 
+    def compare_states(self, states1, states2):
+        same = True
+        for i, state in enumerate(states1):
+            if np.size(state) > 1:
+                if (state != states2[i]).any():
+                    same = False
+            else:
+                if (state != states2[i]):
+                    same = False
+        return same
+
     def find_child(self, state_nxt):
         # check if this child already exist
         # for determinisitc model only
 
         exist = False
         exist_child = None
+
+
+        # for child in self.children:
+        #     # print("same: ", self.compare_states(child.state, state_nxt))
+        #     if self.compare_states(child.state, state_nxt):
+        #         exist = True
+        #         exist_child = child
 
         if self.num_children() != 0:
             exist = True

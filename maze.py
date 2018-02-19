@@ -37,9 +37,9 @@ class MazeEnv(object):
         states = copy.deepcopy([self.map_matrix, self.car_location, self.current_step, self.done])
         return states
 
-    def load_states(self, states):
+    def load_states(self, saved_states):
         # load states
-        self.map_matrix, self.car_location, self.current_step, self.done = copy.deepcopy(states)
+        self.map_matrix, self.car_location, self.current_step, self.done = copy.deepcopy(saved_states)
 
     def reset(self):
         # create random map

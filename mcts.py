@@ -14,18 +14,11 @@ class Mcts(object):
     For infinite action space finite state space
 
     """
-    def __init__(self, env, exploration_parameter, default_policy_fn):
+    def __init__(self, env, exploration_parameter, default_policy_fn, model_fn):
         self.cp = exploration_parameter
         self.default_policy_fn = default_policy_fn
         self.env = env
-
-    def model_fn(self, state, action):
-        # wrap env inside
-        self.env.load_states(state)
-        _, reward, done, status = self.env.step(action)
-        state_nxt = self.env.save_states()
-
-        return state_nxt, reward, done
+        self.model_fn = model_fn
 
     def run(self, st, rollout_times, debug=False):
         root_node = StateNode(st, parent=None, depth=0)
@@ -127,7 +120,7 @@ class Mcts(object):
         leaf_state_node.append_child(new_sa_node)
 
 
-        state_nxt, reward, done = self.model_fn(leaf_state_node.state, action)
+        state_nxt, reward, done = self.model_fn.step(leaf_state_node.state, action)
         new_s_node = StateNode(state_nxt, parent=new_sa_node, depth=new_sa_node.depth+1)
         new_sa_node.append_child(new_s_node)
         new_sa_node.reward = reward
@@ -153,7 +146,7 @@ class Mcts(object):
                 current_s_node.append_child(new_sa_node)
 
             # model generate next state add a (s) node into tree
-            state_nxt, reward, done = self.model_fn(current_s_node.state, action)
+            state_nxt, reward, done = self.model_fn.step(current_s_node.state, action)
             new_s_node, exist = new_sa_node.find_child(state_nxt)
 
             if not exist:
@@ -197,7 +190,7 @@ class Mcts(object):
         while True:
             horizon += 1
             action = self.default_policy_fn.get_action(current_s_node.state)
-            state_nxt, reward, done = self.model_fn(current_s_node.state, action)
+            state_nxt, reward, done = self.model_fn.step(current_s_node.state, action)
             cumulative_reward += reward
 
             if done or horizon > max_horizon:
