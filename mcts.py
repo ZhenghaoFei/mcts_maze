@@ -1,17 +1,13 @@
 import numpy as np
 import copy
 
-from mdp_nodes import StateNode, StateActionNode
-from utils import print_tree
+from mcts_utils import StateNode, StateActionNode, print_tree
 
 class Mcts(object):
     """
     Monte Carlo Tree Search Planning Method
-    0. Normal
+    Normal version
     For finite action space and finite state space
-
-    1. Simple Progressive Widening
-    For infinite action space finite state space
 
     """
     def __init__(self, env, exploration_parameter, default_policy_fn, model_fn):
