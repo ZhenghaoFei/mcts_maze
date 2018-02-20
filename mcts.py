@@ -15,6 +15,7 @@ class Mcts(object):
         self.default_policy_fn = default_policy_fn
         self.env = env
         self.model_fn = model_fn
+        self.select_action = self.select_action_uct
 
     def run(self, st, rollout_times, debug=False):
         root_node = StateNode(st, parent=None, depth=0)
@@ -52,20 +53,6 @@ class Mcts(object):
             action = acs[best_q_idx]
         return action
 
-    def select_action(self, state_node):
-
-        qs = []
-        acs = []
-        for child in node.children:
-            q = child.value() + self.cp * np.sqrt((np.log(state_node.visited_times)/child.visited_times))
-            qs.append(q)
-            acs.append(acs)
-        qs = np.asarray(qs)
-        best_q_idx = np.argmax(qs) 
-        action = acs[best_q_idx]
-
-        return action
-
     def select_action_random(self, state_node):
 
         action = np.random.randint(self.env.ACTION_DIM)
@@ -73,7 +60,7 @@ class Mcts(object):
         return action
 
     def select_action_uct(self, state_node):
-
+        # select action according to uct value
         best_action = self.default_policy_fn.get_action(state_node.state)
         best_q = -np.inf
 
@@ -115,7 +102,7 @@ class Mcts(object):
 
             # select action add a (s,a) node into tree
             # action = self.select_action_random(current_s_node)
-            action = self.select_action_uct(current_s_node)
+            action = self.select_action(current_s_node)
 
             new_sa_node, exist = current_s_node.find_child(action)
 
@@ -140,8 +127,6 @@ class Mcts(object):
                 if not done:
                     current_s_node, done = self.expansion(current_s_node)
                 break
-
-
 
         if not done:
             cumulative_reward = self.eval(current_s_node)
@@ -176,18 +161,49 @@ class Mcts(object):
         # print("cumulative_reward: ", cumulative_reward)
         return cumulative_reward
 
-
-
 class MctsSwp(Mcts):
     """
     Monte Carlo Tree Search Planning Method
 
-    1. Double Progressive Widening
-    For infinite action space infinite state space
+    Single Progressive Widening
+    For infinite action space finite state space
 
     """
+    def __init__(self, env, exploration_parameter, default_policy_fn, model_fn):
+        self.cp = exploration_parameter
+        self.default_policy_fn = default_policy_fn
+        self.env = env
+        self.model_fn = model_fn
+        self.select_action = self.select_action_swp
 
-    def select_action_swp(state_node, alpha=0.5):
+    def select_action_swp(self, state_node, alpha=0.5):
+        # select action single progressive widening
+
+        # print("state_node.visited_times)**alpha", (state_node.visited_times)**alpha)
+        # print("state_node.num_children()", state_node.num_children())
+
+        if (state_node.visited_times)**alpha > state_node.num_children():
+            action = self.default_policy_fn.get_action(state_node.state)
+            new_sa_node, exist = state_node.find_child(action)
+            print("swp")
+            if not exist:
+                new_sa_node = StateActionNode(state_node.state, action, parent=state_node, depth=state_node.depth+1)
+                state_node.append_child(new_sa_node)
+        else:
+            action = self.select_action_uct(state_node)
+
+        return action
+
+
+class MctsDwp(Mcts):
+    """
+    Monte Carlo Tree Search Planning Method
+
+    Double Progressive Widening
+    For infinite action space finite state space
+
+    """
+    def select_action_dwp(state_node, alpha=0.5):
 
         if (state_node.visited_times)**alpha > state_node.num_children():
             action = self.default_policy_fn.get_action(state_node.state)
@@ -200,8 +216,6 @@ class MctsSwp(Mcts):
             action = self.select_action_uct(StateNode)
 
         return action
-
-
         
 
 
