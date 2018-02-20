@@ -1,15 +1,21 @@
 from maze import MazeEnv
-from mcts import Mcts, MctsSwp
+from mcts import Mcts, MctsSwp, MctsDwp
 from controller import RandomController
 from utils import ModelWrapper
 
 
-maze_env = MazeEnv(6, 0.2)
+maze_env = MazeEnv(7, 0.2)
 # maze_env.plot_st(ion=False)
 
 random_policy_fn = RandomController(maze_env)
 model_fn = ModelWrapper(maze_env)
-mcts = MctsSwp(maze_env, 1., random_policy_fn, model_fn)
+cp = 1
+alpha = 0.5
+beta = 0.5
+# mcts = MctsSwp(maze_env, cp, alpha, random_policy_fn, model_fn)
+# mcts = Mcts(maze_env, cp, random_policy_fn, model_fn)
+
+mcts = MctsDwp(maze_env, cp, alpha, beta, random_policy_fn, model_fn)
 
 s_t = maze_env.reset()
 
@@ -17,7 +23,7 @@ while True:
     maze_env.plot_st(ion=True)
 
     st = maze_env.save_states()
-    action, root_value = mcts.run(st, 100, debug=True)
+    action, root_value = mcts.run(st, 2000, debug=True)
     print("best action: ", action, "root_value: ", root_value)
 
     s_t, reward, done, status = maze_env.step(action, verbose=False)

@@ -3,13 +3,14 @@ from queue import *
 
 
 class StateNode(object):
-    def __init__(self, state, parent, depth):
+    def __init__(self, state, parent, depth, reward):
         self.type = "state_node"
         self.state = state
         self.parent = parent
         self.children = []
         self.visited_times = 0
         self.cumulative_reward = 0.
+        self.reward = reward
         self.depth = depth
 
     def find_child(self, action):
@@ -85,6 +86,10 @@ class StateActionNode(object):
     def value(self):
         value = self.cumulative_reward / self.visited_times
         return value
+
+    def reward_mean(self):
+        reward_mean = self.reward / self.visited_times
+        return reward_mean
 
     def num_children(self):
         num_children = len(self.children)

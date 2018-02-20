@@ -18,7 +18,7 @@ class Mcts(object):
         self.select_action = self.select_action_uct
 
     def run(self, st, rollout_times, debug=False):
-        root_node = StateNode(st, parent=None, depth=0)
+        root_node = StateNode(st, parent=None, depth=0, reward=0)
 
         # grow the tree for N times
         for t in range(rollout_times):
@@ -79,6 +79,15 @@ class Mcts(object):
 
         return best_action
 
+    def aggregate_sa_node(self, state_node, action):
+        new_sa_node, exist = state_node.find_child(action)
+
+        if not exist:
+            new_sa_node = StateActionNode(state_node.state, action, parent=state_node, depth=state_node.depth+1)
+            state_node.append_child(new_sa_node)
+
+        return new_sa_node
+
     def expansion(self, leaf_state_node):
         action = self.default_policy_fn.get_action(leaf_state_node.state)
         new_sa_node = StateActionNode(leaf_state_node.state, action, parent=leaf_state_node, depth=leaf_state_node.depth+1)
@@ -86,50 +95,28 @@ class Mcts(object):
 
 
         state_nxt, reward, done = self.model_fn.step(leaf_state_node.state, action)
-        new_s_node = StateNode(state_nxt, parent=new_sa_node, depth=new_sa_node.depth+1)
+        new_s_node = StateNode(state_nxt, parent=new_sa_node, depth=new_sa_node.depth+1., reward=reward)
         new_sa_node.append_child(new_s_node)
-        new_sa_node.reward = reward
+        new_sa_node.reward += reward
 
 
         return new_s_node, done
 
-    def grow_tree(self, root_node):
-        current_s_node = root_node
-        cumulative_reward = 0.
+    def select_outcome(self, sa_node):
+        # normal version
 
-        # forward phase
-        while True:
+        state_nxt, reward, done = self.model_fn.step(sa_node.state, sa_node.action)
+        decision_node, exist = sa_node.find_child(state_nxt)
 
-            # select action add a (s,a) node into tree
-            # action = self.select_action_random(current_s_node)
-            action = self.select_action(current_s_node)
+        if not exist:
+            decision_node = StateNode(state_nxt, parent=sa_node, depth=sa_node.depth+1, reward=reward)
+            sa_node.append_child(decision_node)
 
-            new_sa_node, exist = current_s_node.find_child(action)
+        sa_node.reward += decision_node.reward
 
-            if not exist:
-                new_sa_node = StateActionNode(current_s_node.state, action, parent=current_s_node, depth=current_s_node.depth+1)
-                current_s_node.append_child(new_sa_node)
+        return decision_node, done
 
-            # model generate next state add a (s) node into tree
-            state_nxt, reward, done = self.model_fn.step(current_s_node.state, action)
-            new_s_node, exist = new_sa_node.find_child(state_nxt)
-
-            if not exist:
-                new_s_node = StateNode(state_nxt, parent=new_sa_node, depth=new_sa_node.depth+1)
-                new_sa_node.append_child(new_s_node)
-
-            new_sa_node.reward = reward
-
-
-            current_s_node = new_s_node
-
-            if current_s_node.visited_times == 0 or current_s_node.num_children() == 0:
-                if not done:
-                    current_s_node, done = self.expansion(current_s_node)
-                break
-
-        if not done:
-            cumulative_reward = self.eval(current_s_node)
+    def back_propogation(self, current_s_node, cumulative_reward):
 
         # backward phase
         while True:
@@ -141,10 +128,35 @@ class Mcts(object):
                 break
 
             current_sa_node = current_s_node.parent
-            cumulative_reward += current_sa_node.reward
-            current_sa_node.cumulative_reward += cumulative_reward
             current_sa_node.visited_times += 1
+            cumulative_reward += current_sa_node.reward_mean()
+            current_sa_node.cumulative_reward += cumulative_reward
             current_s_node = current_sa_node.parent
+
+    def grow_tree(self, root_node):
+        current_s_node = root_node
+
+        # forward phase
+        while True:
+
+            # select action add a (s,a) node into tree
+            action = self.select_action(current_s_node)
+            new_sa_node = self.aggregate_sa_node(current_s_node, action)
+
+            # model generate next state add a (s) node into tree
+            current_s_node, done = self.select_outcome(new_sa_node)
+
+            if current_s_node.visited_times == 0 or current_s_node.num_children() == 0:
+                if not done:
+                    current_s_node, done = self.expansion(current_s_node)
+                break
+
+        if not done:
+            cumulative_reward = self.eval(current_s_node)
+        else:
+            cumulative_reward = 0.
+
+        self.back_propogation(current_s_node, cumulative_reward)
 
     def eval(self, current_s_node, max_horizon=10):
         horizon = 0
@@ -169,23 +181,24 @@ class MctsSwp(Mcts):
     For infinite action space finite state space
 
     """
-    def __init__(self, env, exploration_parameter, default_policy_fn, model_fn):
+    def __init__(self, env, exploration_parameter, alpha, default_policy_fn, model_fn):
         self.cp = exploration_parameter
+        self.alpha = alpha
         self.default_policy_fn = default_policy_fn
         self.env = env
         self.model_fn = model_fn
         self.select_action = self.select_action_swp
 
-    def select_action_swp(self, state_node, alpha=0.5):
+    def select_action_swp(self, state_node):
         # select action single progressive widening
 
         # print("state_node.visited_times)**alpha", (state_node.visited_times)**alpha)
         # print("state_node.num_children()", state_node.num_children())
 
-        if (state_node.visited_times)**alpha > state_node.num_children():
+        if (state_node.visited_times)**self.alpha > state_node.num_children():
             action = self.default_policy_fn.get_action(state_node.state)
             new_sa_node, exist = state_node.find_child(action)
-            print("swp")
+
             if not exist:
                 new_sa_node = StateActionNode(state_node.state, action, parent=state_node, depth=state_node.depth+1)
                 state_node.append_child(new_sa_node)
@@ -195,7 +208,7 @@ class MctsSwp(Mcts):
         return action
 
 
-class MctsDwp(Mcts):
+class MctsDwp(MctsSwp):
     """
     Monte Carlo Tree Search Planning Method
 
@@ -203,19 +216,45 @@ class MctsDwp(Mcts):
     For infinite action space finite state space
 
     """
-    def select_action_dwp(state_node, alpha=0.5):
+    def __init__(self, env, exploration_parameter, alpha, beta, default_policy_fn, model_fn):
+        self.cp = exploration_parameter
+        self.alpha = alpha
+        self.beta = beta
+        self.default_policy_fn = default_policy_fn
+        self.env = env
+        self.model_fn = model_fn
+        self.select_action = self.select_action_swp
 
-        if (state_node.visited_times)**alpha > state_node.num_children():
-            action = self.default_policy_fn.get_action(state_node.state)
-            new_sa_node, exist = state_node.find_child(action)
+    def choose_decision_node(self, sa_node):
+        logits = []
+        decision_nodes = []
+        for child in sa_node.children:
+            logits.append(child.visited_times)
+            decision_nodes.append(child)
+
+        logits = np.asarray(logits, dtype=np.float)
+        logits = logits/np.sum(logits) # normalize
+        node_idx = np.random.choice(sa_node.num_children(), p=logits)
+
+        decision_node = decision_nodes[node_idx]
+
+        return decision_node
+
+    def select_outcome(self, sa_node):
+        # double progressive widening version
+        if (sa_node.visited_times)**self.beta > sa_node.num_children():
+            state_nxt, reward, done = self.model_fn.step(sa_node.state, sa_node.action)
+            decision_node, exist = sa_node.find_child(state_nxt)
 
             if not exist:
-                new_sa_node = StateActionNode(state_node.state, action, parent=state_node, depth=state_node.depth+1)
-                state_node.append_child(new_sa_node)
-        else:
-            action = self.select_action_uct(StateNode)
+                decision_node = StateNode(state_nxt, parent=sa_node, depth=sa_node.depth+1, reward=reward)
+                sa_node.append_child(decision_node)
 
-        return action
-        
+        else:
+            decision_node = self.choose_decision_node(sa_node)
+    
+        sa_node.reward += decision_node.reward
+
+        return decision_node, done
 
 
