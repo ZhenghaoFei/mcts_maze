@@ -3,7 +3,7 @@ from queue import *
 
 
 class StateNode(object):
-    def __init__(self, state, parent, depth, reward):
+    def __init__(self, state, parent, depth, reward, done):
         self.type = "state_node"
         self.state = state
         self.parent = parent
@@ -12,6 +12,7 @@ class StateNode(object):
         self.cumulative_reward = 0.
         self.reward = reward
         self.depth = depth
+        self.done = done
 
     def find_child(self, action):
         # check if this child already exist

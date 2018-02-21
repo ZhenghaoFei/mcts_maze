@@ -18,7 +18,7 @@ class Mcts(object):
         self.select_action = self.select_action_uct
 
     def run(self, st, rollout_times, debug=False):
-        root_node = StateNode(st, parent=None, depth=0, reward=0)
+        root_node = StateNode(st, parent=None, depth=0, reward=0, done=False)
 
         # grow the tree for N times
         for t in range(rollout_times):
@@ -95,7 +95,7 @@ class Mcts(object):
 
 
         state_nxt, reward, done = self.model_fn.step(leaf_state_node.state, action)
-        new_s_node = StateNode(state_nxt, parent=new_sa_node, depth=new_sa_node.depth+1., reward=reward)
+        new_s_node = StateNode(state_nxt, parent=new_sa_node, depth=new_sa_node.depth+1., reward=reward, done=done)
         new_sa_node.append_child(new_s_node)
         new_sa_node.reward += reward
 
@@ -109,7 +109,7 @@ class Mcts(object):
         decision_node, exist = sa_node.find_child(state_nxt)
 
         if not exist:
-            decision_node = StateNode(state_nxt, parent=sa_node, depth=sa_node.depth+1, reward=reward)
+            decision_node = StateNode(state_nxt, parent=sa_node, depth=sa_node.depth+1, reward=reward, done=done)
             sa_node.append_child(decision_node)
 
         sa_node.reward += decision_node.reward
@@ -242,17 +242,18 @@ class MctsDwp(MctsSwp):
 
     def select_outcome(self, sa_node):
         # double progressive widening version
-        if (sa_node.visited_times)**self.beta > sa_node.num_children():
+        if (sa_node.visited_times)**self.beta >= sa_node.num_children():
             state_nxt, reward, done = self.model_fn.step(sa_node.state, sa_node.action)
             decision_node, exist = sa_node.find_child(state_nxt)
 
             if not exist:
-                decision_node = StateNode(state_nxt, parent=sa_node, depth=sa_node.depth+1, reward=reward)
+                decision_node = StateNode(state_nxt, parent=sa_node, depth=sa_node.depth+1, reward=reward, done=done)
                 sa_node.append_child(decision_node)
 
         else:
             decision_node = self.choose_decision_node(sa_node)
-    
+            done = decision_node.done
+
         sa_node.reward += decision_node.reward
 
         return decision_node, done
