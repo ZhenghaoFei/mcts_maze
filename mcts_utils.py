@@ -96,7 +96,7 @@ class StateActionNode(object):
         num_children = len(self.children)
         return num_children
 
-def print_tree(node):
+def print_tree(node, depth=0):
     open_set = Queue()
     closed_set = set()
 
@@ -104,6 +104,10 @@ def print_tree(node):
     open_set.put(node)
     while not open_set.empty():
         cr_node = open_set.get()
+
+        if depth > 0 and cr_node.depth > depth:
+            break
+
         print_node_info(cr_node)
 
         for child in cr_node.children:
